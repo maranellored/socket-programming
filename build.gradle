@@ -20,8 +20,11 @@ repositories {
 
 dependencies {
     // Dependencies go here
+    compile 'com.google.guava:guava:23.0'
+    compile 'ch.qos.logback:logback-classic:1.2.3'
 
     testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-all:1.10.19'
 }
 
 mainClassName = 'com.newrelic.codingchallenge.Main'

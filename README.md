@@ -70,3 +70,47 @@ If you are planning to use IDEA you can generate the IDEA project files
 by running `./gradlew idea` and directly opening the project folder
 as a project in idea.
 
+## Implementation Details and Assumptions
+* This implementation uses Blocking I/O instead of NIO. The reason for that is because the number of clients is bounded and this number should be schedulable on a modern CPU without the need for extensive context switching. 
+
+  It might be possible to achieve much higher throughput with NIO but the tradeoff in terms of complexity of an NIO implementation and in the interest of time, the accuracy of the implementation with a blocking IO solution was preferred.
+  
+* Uses Logback as the logging library to log to a file. The default appender just prints to the STDOUT. 
+  But the `NumberProcessor` class has a specially configured appender to log to a file on disk, as mentioned in the requirements. 
+
+  Another huge throughput gain in the application, could be by preventing the appender from Flushing to disk immediately, which is the default.
+  The logback configuration file is placed in the `src/main/resources` directory. 
+
+* Since the valid range of numbers is from 0 to 999,999,999. The total number of unique values is a billion. 
+
+  This allows us to store the numbers as Integers in memory in order to check for duplicates. 
+  In the worst case, this would require at least 4G of memory for the JVM. 
+  This can easily be switched to a `Long`, if larger statistics are to be provided.
+ 
+* In order to handle synchronization issues, this implementation uses a ConcurrentHashSet implementation. For space benefits, this could be replaced by a BitSet. 
+
+  The use of a BitSet would entail custom synchronization logic to ensure thread safety.   
+
+* The handling of the duplicate number count uses an `AtomicInteger` to safe guard against concurrency issues. 
+  This could be another bottleneck in the performance of the application. 
+  
+* The entire implementation assumes that the counts provided by the statistics reporter are highly accurate. 
+  By relaxing this assumption, it could be possible to achieve higher throughput by allowing for weaker concurrency primitives. 
+  
+* Since the input numbers are parsed as Integers, leading 0s are dropped when they are logged to the file and stored internally.
+
+* The error messages if any, are logged to STDOUT. 
+
+* Keeps track of all the open connections in a ConcurrentHashSet since there are thread safety concerns around multiple clients trying to close a connection at the same time. 
+  Also uses a semaphore to keep track of the number of connected clients. 
+
+* The implementation has been tested with an `Xmx` and `Xms` both set to 2G. 
+  Higher starting heap size should ideally provide for better throughput since the JVM wouldn't need to call into the kernel every time. 
+  
+* The server's newline sequence is either a line feed `\n`, a carriage return `\r` or a carriage return followed by a line feed, as defined in the Java standard library.
+
+* The number of connections is limited to 5 as defined in the requirements. 
+  
+  If a new client tries to connect after the server has reached its maximum number of connections, then the connection is closed with no real message. 
+ 
+* Uses a fixed size thread pool to handle the client connections, and also single scheduled executor to display the stats periodically.
